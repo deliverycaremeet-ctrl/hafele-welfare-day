@@ -235,12 +235,7 @@ body{font-family:var(--fb);background:var(--cream);color:var(--coal);min-height:
       <div class="sum-row"><span class="sum-lbl">💓 ECG</span><span class="sum-val hl" id="sum-e"></span></div>
     </div>
     <p class="email-note">📬 Riceverai una mail di conferma all'indirizzo indicato.</p>
-    <p class="cal-title">Aggiungi al calendario</p>
-    <div class="cal-btns">
-      <a class="cal-btn g" id="cg-p" href="#" target="_blank">🔵 Google Calendar — Prelievo</a>
-      <a class="cal-btn g" id="cg-e" href="#" target="_blank">🔵 Google Calendar — ECG</a>
-    </div>
-    <p style="font-size:.75rem;color:var(--mid);margin-top:10px;">📧 I link per Apple Calendar e Outlook sono inclusi nella mail di conferma.</p>
+    <p style="font-size:.83rem;color:var(--mid);background:rgba(107,143,113,.08);padding:11px 15px;border-radius:8px;border-left:3px solid var(--sage-l);margin-bottom:12px;">📅 I link per aggiungere gli appuntamenti al calendario (Google, Apple, Outlook) sono inclusi nella <strong>mail di conferma</strong> che riceverai a breve.</p>
     <button class="btn-print" onclick="window.print()">🖨️ Stampa riepilogo</button>
   </div>
 
@@ -248,188 +243,223 @@ body{font-family:var(--fb);background:var(--cream);color:var(--coal);min-height:
 <footer class="site-footer">Häfele Welfare Day — Prenotazioni riservate ai dipendenti</footer>
 
 <script>
-var state={nome:"",cognome:"",cf:"",tel:"",email:"",slotP:null,slotE:null};
-var cur=1;
-var EVENT_DATE="20260518", EVENT_DATE_DISPLAY="18 Maggio 2026", LOCATION="Sede Häfele";
-var APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbxjDSAeib3jRY5Dc5QSfEpWDjZp1vj8O2dIs01KwXaVcbovYWPPHMZTHnCO_yLdY10b/exec";
+// ---- STATO ----
+var state = {nome:"",cognome:"",cf:"",tel:"",email:"",slotP:"",slotE:""};
+var BP = {}, BE = {};
 
-function tMin(t){var p=t.split(":");return +p[0]*60+ +p[1];}
-function tStr(m){return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");}
-function genSlots(s,e,dur,brk){
-  var out=[],st=tMin(s),en=tMin(e),bk=(brk||[]).map(function(b){return{f:tMin(b[0]),t:tMin(b[1])};});
-  for(var t=st;t+dur<=en;t+=dur){
-    var skip=bk.some(function(b){return t<b.t&&t+dur>b.f;});
-    if(!skip)out.push({key:tStr(t),label:tStr(t)+" — "+tStr(t+dur)});
+var APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxjDSAeib3jRY5Dc5QSfEpWDjZp1vj8O2dIs01KwXaVcbovYWPPHMZTHnCO_yLdY10b/exec";
+var EVENT_DATE = "20260518";
+var EVENT_DATE_DISPLAY = "18 Maggio 2026";
+var LOCATION = "Sede Häfele";
+
+// Slot prelievo: 08:30-10:30, ogni 3 min
+var SLP = [];
+(function(){
+  for(var h=8,m=30; h<10||(h===10&&m<=30); ){
+    var key=String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");
+    SLP.push({key:key,label:key});
+    m+=3; if(m>=60){h++;m-=60;}
   }
-  return out;
-}
-var SLP=genSlots("08:30","10:30",3,[]);
-var SLE=genSlots("09:00","18:00",15,[["12:30","13:00"]]);
-var BP={};
-var BE={};
+})();
 
-function fillSel(id,slots,booked){
-  var sel=document.getElementById(id);
-  while(sel.options.length>1)sel.remove(1);
-  slots.forEach(function(s){
-    var o=document.createElement("option");
-    o.value=s.key;
-    if(booked[s.key]){o.textContent=s.label+" (già prenotato)";o.disabled=true;o.style.color="#aaa";}
-    else o.textContent=s.label;
-    sel.appendChild(o);
-  });
-}
+// Slot ECG: 09:00-12:30, 13:00-18:00, ogni 15 min
+var SLE = [];
+(function(){
+  for(var h=9,m=0; h<18||(h===18&&m===0); ){
+    if(!(h===12&&m>=30)&&!(h===13&&m===0)){
+      var key=String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");
+      SLE.push({key:key,label:key});
+    }
+    m+=15; if(m>=60){h++;m-=60;}
+  }
+})();
 
+// ---- NAVIGAZIONE STEP ----
 function goStep(n){
-  document.getElementById("s"+cur).classList.remove("active");
-  for(var i=1;i<=4;i++){
-    var el=document.getElementById("t"+i);
-    el.classList.remove("active","done");
-    if(i===n)el.classList.add("active");
-    else if(i<n)el.classList.add("done");
-  }
-  cur=n;
-  document.getElementById("s"+n).classList.add("active");
-  document.getElementById("prog").style.width=Math.round((n-1)/3*100)+"%";
+  document.querySelectorAll(".card").forEach(function(c){c.classList.remove("active");});
+  var card = document.getElementById("s"+n);
+  if(card) card.classList.add("active");
+
+  var steps = [null,25,50,75,100];
+  var prog = document.getElementById("prog");
+  if(prog) prog.style.width = (steps[n]||25)+"%";
+
+  ["t1","t2","t3","t4"].forEach(function(id,i){
+    var el = document.getElementById(id);
+    if(!el) return;
+    el.className = "stp";
+    if(i+1 < n) el.classList.add("done");
+    if(i+1 === n) el.classList.add("active");
+  });
+
   window.scrollTo(0,0);
 }
 
-document.getElementById("btn1").addEventListener("click",function(){
-  var nome=document.getElementById("inp-nome").value.trim();
-  var cognome=document.getElementById("inp-cognome").value.trim();
-  var cf=document.getElementById("inp-cf").value.trim();
-  var tel=document.getElementById("inp-tel").value.trim();
-  var email=document.getElementById("inp-email").value.trim();
-  var ok=true;
-  ["e-nome","e-cognome","e-cf","e-tel","e-email"].forEach(function(id){
-    var el=document.getElementById(id);if(el)el.textContent="";
+// ---- POPOLA SELECT SLOT ----
+function fillSel(selId, slots, booked){
+  var sel = document.getElementById(selId);
+  if(!sel) return;
+  sel.innerHTML = '<option value="">— Seleziona un orario —</option>';
+  slots.forEach(function(s){
+    if(booked[s.key]) return;
+    var opt = document.createElement("option");
+    opt.value = s.key;
+    opt.textContent = s.label;
+    sel.appendChild(opt);
   });
-  if(!nome){var el=document.getElementById("e-nome");if(el)el.textContent="Campo obbligatorio";ok=false;}
-  if(!cognome){var el=document.getElementById("e-cognome");if(el)el.textContent="Campo obbligatorio";ok=false;}
-  if(!cf||cf.length<16){var el=document.getElementById("e-cf");if(el)el.textContent="Codice fiscale non valido (16 caratteri)";ok=false;}
-  if(!tel){var el=document.getElementById("e-tel");if(el)el.textContent="Campo obbligatorio";ok=false;}
-  if(!email||email.indexOf("@")<0){var el=document.getElementById("e-email");if(el)el.textContent="Email non valida";ok=false;}
-  if(!ok)return;
-  state.nome=nome;state.cognome=cognome;state.cf=cf.toUpperCase();state.tel=tel;state.email=email;
-  var btn=document.getElementById("btn1");
-  btn.innerHTML="Caricamento... ⏳";btn.disabled=true;
-  var done=false;
+}
+
+// ---- STEP 1: dati anagrafici ----
+document.getElementById("btn1").addEventListener("click", function(){
+  var nome    = document.getElementById("inp-nome").value.trim();
+  var cognome = document.getElementById("inp-cognome").value.trim();
+  var cf      = document.getElementById("inp-cf").value.trim().toUpperCase();
+  var tel     = document.getElementById("inp-tel").value.trim();
+  var email   = document.getElementById("inp-email").value.trim();
+  var ok = true;
+
+  ["e-nome","e-cognome","e-cf","e-tel","e-email"].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.textContent = "";
+  });
+
+  if(!nome){    document.getElementById("e-nome").textContent="Campo obbligatorio"; ok=false; }
+  if(!cognome){ document.getElementById("e-cognome").textContent="Campo obbligatorio"; ok=false; }
+  if(!cf||cf.length!==16){ document.getElementById("e-cf").textContent="Inserisci un CF valido (16 caratteri)"; ok=false; }
+  if(!tel){     document.getElementById("e-tel").textContent="Campo obbligatorio"; ok=false; }
+  if(!email||email.indexOf("@")<0){ document.getElementById("e-email").textContent="Email non valida"; ok=false; }
+
+  if(!ok) return;
+
+  state.nome=nome; state.cognome=cognome; state.cf=cf; state.tel=tel; state.email=email;
+
+  var btn = document.getElementById("btn1");
+  btn.disabled = true;
+  btn.textContent = "Caricamento...";
+
+  // Prova a caricare gli slot prenotati, con timeout 3s
+  var done = false;
   function proceed(){
-    if(done)return; done=true;
-    btn.innerHTML='Continua <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
-    btn.disabled=false;
-    fillSel("sel-p",SLP,BP);
+    if(done) return;
+    done = true;
+    btn.innerHTML = 'Continua <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+    btn.disabled = false;
+    fillSel("sel-p", SLP, BP);
     goStep(2);
   }
-  // timeout di sicurezza: se fetch non risponde in 3s, vai avanti
-  var t=setTimeout(function(){BP={};BE={};proceed();},3000);
-  fetch(APPS_SCRIPT_URL+"?action=getBooked")
-    .then(function(r){return r.json();})
+
+  var t = setTimeout(function(){ BP={}; BE={}; proceed(); }, 3000);
+
+  fetch(APPS_SCRIPT_URL + "?action=getBooked")
+    .then(function(r){ return r.json(); })
     .then(function(d){
       clearTimeout(t);
-      BP={};BE={};
-      (d.prelievo||[]).forEach(function(k){BP[k]=1;});
-      (d.ecg||[]).forEach(function(k){BE[k]=1;});
+      BP={}; BE={};
+      (d.prelievo||[]).forEach(function(k){ BP[k]=1; });
+      (d.ecg||[]).forEach(function(k){ BE[k]=1; });
       proceed();
     })
-    .catch(function(){clearTimeout(t);BP={};BE={};proceed();});
+    .catch(function(){ clearTimeout(t); BP={}; BE={}; proceed(); });
 });
 
-document.getElementById("back1").addEventListener("click",function(){goStep(1);});
+document.getElementById("back1").addEventListener("click", function(){ goStep(1); });
 
-document.getElementById("sel-p").addEventListener("change",function(){
-  var v=this.value,s=SLP.find(function(x){return x.key===v;});
-  if(v){document.getElementById("badge-p-txt").textContent=(s?s.label:v)+" — "+EVENT_DATE_DISPLAY;
-    document.getElementById("badge-p").style.display="block";}
-  else document.getElementById("badge-p").style.display="none";
+// badge prelievo
+document.getElementById("sel-p").addEventListener("change", function(){
+  var v = this.value;
+  document.getElementById("badge-p").style.display = v ? "block" : "none";
+  if(v) document.getElementById("badge-p-txt").textContent = v + " — " + EVENT_DATE_DISPLAY;
 });
 
-document.getElementById("btn2").addEventListener("click",function(){
-  var v=document.getElementById("sel-p").value;
-  if(!v){document.getElementById("e-p").textContent="Seleziona un orario per il prelievo";return;}
-  document.getElementById("e-p").textContent="";
-  state.slotP=v;
-  fillSel("sel-e",SLE,BE);
+// ---- STEP 2: scelta prelievo ----
+document.getElementById("btn2").addEventListener("click", function(){
+  var v = document.getElementById("sel-p").value;
+  if(!v){ document.getElementById("e-p").textContent="Seleziona un orario per il prelievo"; return; }
+  document.getElementById("e-p").textContent = "";
+  state.slotP = v;
+  fillSel("sel-e", SLE, BE);
   goStep(3);
 });
 
-document.getElementById("back2").addEventListener("click",function(){goStep(2);});
+document.getElementById("back2").addEventListener("click", function(){ goStep(2); });
 
-document.getElementById("sel-e").addEventListener("change",function(){
-  var v=this.value,s=SLE.find(function(x){return x.key===v;});
-  if(v){document.getElementById("badge-e-txt").textContent=(s?s.label:v)+" — "+EVENT_DATE_DISPLAY;
-    document.getElementById("badge-e").style.display="block";}
-  else document.getElementById("badge-e").style.display="none";
+// badge ECG
+document.getElementById("sel-e").addEventListener("change", function(){
+  var v = this.value;
+  document.getElementById("badge-e").style.display = v ? "block" : "none";
+  if(v) document.getElementById("badge-e-txt").textContent = v + " — " + EVENT_DATE_DISPLAY;
 });
 
-document.getElementById("btn3").addEventListener("click",function(){
-  var v=document.getElementById("sel-e").value;
-  if(!v){document.getElementById("e-e").textContent="Seleziona un orario per l'ECG";return;}
-  document.getElementById("e-e").textContent="";
-  state.slotE=v;
-  buildSummary();buildCalLinks();
-  // Vai subito al riepilogo, salvataggio in background
+// ---- STEP 3: scelta ECG → CONFERMA ----
+document.getElementById("btn3").addEventListener("click", function(){
+  var v = document.getElementById("sel-e").value;
+  if(!v){ document.getElementById("e-e").textContent="Seleziona un orario per l'ECG"; return; }
+  document.getElementById("e-e").textContent = "";
+  state.slotE = v;
+
+  // Popola riepilogo
+  document.getElementById("sum-nome-title").textContent = state.nome;
+  document.getElementById("sum-nome").textContent  = state.nome + " " + state.cognome;
+  document.getElementById("sum-cf").textContent    = state.cf;
+  document.getElementById("sum-tel").textContent   = state.tel;
+  document.getElementById("sum-email").textContent = state.email;
+  document.getElementById("sum-p").textContent     = state.slotP + " — " + EVENT_DATE_DISPLAY;
+  document.getElementById("sum-e").textContent     = state.slotE + " — " + EVENT_DATE_DISPLAY;
+
+  // Link Google Calendar prelievo
+  var cgp = document.getElementById("cg-p");
+  if(cgp) cgp.href = gcUrl("Prelievo Sangue - Häfele Welfare Day", state.slotP, 3,
+    "Prelievo per " + state.nome + " " + state.cognome + " — CF: " + state.cf);
+
+  // Link Google Calendar ECG
+  var cge = document.getElementById("cg-e");
+  if(cge) cge.href = gcUrl("Elettrocardiogramma - Häfele Welfare Day", state.slotE, 15,
+    "ECG per " + state.nome + " " + state.cognome + " — CF: " + state.cf);
+
+  // Vai al riepilogo SUBITO
   goStep(4);
-  // Salva su Google Sheets e invia email (in background)
+
+  // Salva su Sheet + invia email in background
   setTimeout(function(){
-    fetch(APPS_SCRIPT_URL,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        action:"book",
-        nome:state.nome,cognome:state.cognome,cf:state.cf,
-        tel:state.tel,email:state.email,
-        slotPrelievo:state.slotP,slotECG:state.slotE,
-        eventDate:"18 Maggio 2026",company:"Häfele"
-      }),
-      mode:"no-cors"
-    }).catch(function(e){console.warn("Save error:",e);});
-  },200);
+    try {
+      fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          action:       "book",
+          nome:         state.nome,
+          cognome:      state.cognome,
+          cf:           state.cf,
+          tel:          state.tel,
+          email:        state.email,
+          slotPrelievo: state.slotP,
+          slotECG:      state.slotE,
+          eventDate:    "18 Maggio 2026",
+          company:      "Häfele"
+        }),
+        mode: "no-cors"
+      });
+    } catch(e){ console.warn("Save error:", e); }
+  }, 300);
 });
 
-function buildSummary(){
-  document.getElementById("sum-nome-title").textContent=state.nome;
-  document.getElementById("sum-nome").textContent=state.nome+" "+state.cognome;
-  document.getElementById("sum-cf").textContent=state.cf;
-  document.getElementById("sum-tel").textContent=state.tel;
-  document.getElementById("sum-email").textContent=state.email;
-  var ps=SLP.find(function(s){return s.key===state.slotP;});
-  var es=SLE.find(function(s){return s.key===state.slotE;});
-  document.getElementById("sum-p").textContent=(ps?ps.label:state.slotP)+" — "+EVENT_DATE_DISPLAY;
-  document.getElementById("sum-e").textContent=(es?es.label:state.slotE)+" — "+EVENT_DATE_DISPLAY;
+// ---- HELPERS CALENDARIO ----
+function gcUrl(title, time, durMin, desc){
+  var p=time.split(":"), h=+p[0], m=+p[1];
+  var em = h*60+m+durMin;
+  var ds = EVENT_DATE+"T"+String(h).padStart(2,"0")+String(m).padStart(2,"0")+"00";
+  var de = EVENT_DATE+"T"+String(Math.floor(em/60)).padStart(2,"0")+String(em%60).padStart(2,"0")+"00";
+  return "https://calendar.google.com/calendar/render?action=TEMPLATE"
+    +"&text="+encodeURIComponent(title)
+    +"&dates="+ds+"/"+de
+    +"&location="+encodeURIComponent(LOCATION)
+    +"&details="+encodeURIComponent(desc);
 }
 
-function toGC(t,dur){
-  var p=t.split(":"),h=+p[0],m=+p[1],em=h*60+m+dur;
-  return{s:EVENT_DATE+"T"+String(h).padStart(2,"0")+String(m).padStart(2,"0")+"00",
-         e:EVENT_DATE+"T"+String(Math.floor(em/60)).padStart(2,"0")+String(em%60).padStart(2,"0")+"00"};
-}
-function gcUrl(title,t,dur,desc){
-  var d=toGC(t,dur);
-  return"https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent(title)+
-    "&dates="+d.s+"/"+d.e+"&location="+encodeURIComponent(LOCATION)+"&details="+encodeURIComponent(desc);
-}
-function makeICS(title,t,dur,desc){
-  var d=toGC(t,dur),now=new Date().toISOString().replace(/[-:.]/g,"").slice(0,15)+"Z";
-  return["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Häfele//IT","CALSCALE:GREGORIAN","METHOD:PUBLISH",
-    "BEGIN:VEVENT","UID:hafele-"+Date.now()+"@welfare","DTSTAMP:"+now,
-    "DTSTART:"+d.s,"DTEND:"+d.e,"SUMMARY:"+title,"LOCATION:"+LOCATION,
-    "DESCRIPTION:"+desc,"STATUS:CONFIRMED","END:VEVENT","END:VCALENDAR"].join("\r\n");
-}
-function icsUrl(txt){return URL.createObjectURL(new Blob([txt],{type:"text/calendar;charset=utf-8"}));}
-
-function buildCalLinks(){
-  var n=state.nome+" "+state.cognome;
-  var pt="Prelievo Sangue - Häfele Welfare Day",pd="Prelievo per "+n+"\nCF: "+state.cf;
-  var et="Elettrocardiogramma - Häfele Welfare Day",ed="ECG per "+n+"\nCF: "+state.cf;
-  document.getElementById("cg-p").href=gcUrl(pt,state.slotP,3,pd);
-  document.getElementById("cg-e").href=gcUrl(et,state.slotE,15,ed);
-  var pi=icsUrl(makeICS(pt,state.slotP,3,pd)),ei=icsUrl(makeICS(et,state.slotE,15,ed));
-  document.getElementById("ca-p").href=pi;document.getElementById("cw-p").href=pi;
-  document.getElementById("ca-e").href=ei;document.getElementById("cw-e").href=ei;
-}
-
-document.getElementById("inp-cf").addEventListener("input",function(){this.value=this.value.toUpperCase();});
+// CF maiuscolo automatico
+document.getElementById("inp-cf").addEventListener("input", function(){
+  this.value = this.value.toUpperCase();
+});
 </script>
 </body>
 </html>
