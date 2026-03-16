@@ -368,20 +368,23 @@ document.getElementById("btn3").addEventListener("click",function(){
   document.getElementById("e-e").textContent="";
   state.slotE=v;
   buildSummary();buildCalLinks();
-  // Salva su Google Sheets e invia email
-  fetch(APPS_SCRIPT_URL,{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      action:"book",
-      nome:state.nome,cognome:state.cognome,cf:state.cf,
-      tel:state.tel,email:state.email,
-      slotPrelievo:state.slotP,slotECG:state.slotE,
-      eventDate:"18 Maggio 2026",company:"Häfele"
-    }),
-    mode:"no-cors"
-  }).catch(function(e){console.warn("Save error:",e);});
+  // Vai subito al riepilogo, salvataggio in background
   goStep(4);
+  // Salva su Google Sheets e invia email (in background)
+  setTimeout(function(){
+    fetch(APPS_SCRIPT_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        action:"book",
+        nome:state.nome,cognome:state.cognome,cf:state.cf,
+        tel:state.tel,email:state.email,
+        slotPrelievo:state.slotP,slotECG:state.slotE,
+        eventDate:"18 Maggio 2026",company:"Häfele"
+      }),
+      mode:"no-cors"
+    }).catch(function(e){console.warn("Save error:",e);});
+  },200);
 });
 
 function buildSummary(){
