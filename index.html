@@ -350,20 +350,18 @@ document.getElementById("btn1").addEventListener("click", function(){
 
   var t = setTimeout(function(){ BP={}; BE={}; proceed(); }, 3000);
 
-fetch(APPS_SCRIPT_URL + "?action=getBooked", {
-  method: 'GET',
-  mode: 'cors',
-  credentials: 'omit'
-})
-.then(function(r){ return r.json(); })
-.then(function(d){
-  clearTimeout(t);
-  BP={}; BE={};
-  (d.prelievo||[]).forEach(function(k){ BP[k]=1; });
-  (d.ecg||[]).forEach(function(k){ BE[k]=1; });
-  proceed();
-})
-.catch(function(){ clearTimeout(t); BP={}; BE={}; proceed(); });
+  fetch(APPS_SCRIPT_URL + "?action=getBooked")
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      clearTimeout(t);
+      BP={}; BE={};
+      (d.prelievo||[]).forEach(function(k){ BP[k]=1; });
+      (d.ecg||[]).forEach(function(k){ BE[k]=1; });
+      proceed();
+    })
+    .catch(function(){ clearTimeout(t); BP={}; BE={}; proceed(); });
+});
+
 document.getElementById("back1").addEventListener("click", function(){ goStep(1); });
 
 // badge prelievo
@@ -424,25 +422,25 @@ document.getElementById("btn3").addEventListener("click", function(){
   // Salva su Sheet + invia email in background
   setTimeout(function(){
     try {
-  fetch(APPS_SCRIPT_URL, {
-  method: "POST",
-  mode: "no-cors",
-  headers: {"Content-Type": "application/x-www-form-urlencoded"},
-  body: new URLSearchParams({
-    action:       "book",
-    nome:         state.nome,
-    cognome:      state.cognome,
-    cf:           state.cf,
-    tel:          state.tel,
-    email:        state.email,
-    slotPrelievo: state.slotP,
-    slotECG:      state.slotE,
-    eventDate:    "18 Maggio 2026",
-    company:      "Häfele"
-  }).toString()
-});
-} catch(e){ console.warn("Save error:", e); }
-}, 300);
+      fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          action:       "book",
+          nome:         state.nome,
+          cognome:      state.cognome,
+          cf:           state.cf,
+          tel:          state.tel,
+          email:        state.email,
+          slotPrelievo: state.slotP,
+          slotECG:      state.slotE,
+          eventDate:    "18 Maggio 2026",
+          company:      "Häfele"
+        }),
+        mode: "no-cors"
+      });
+    } catch(e){ console.warn("Save error:", e); }
+  }, 300);
 });
 
 // ---- HELPERS CALENDARIO ----
