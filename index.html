@@ -422,25 +422,25 @@ document.getElementById("btn3").addEventListener("click", function(){
   // Salva su Sheet + invia email in background
   setTimeout(function(){
     try {
-      fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          action:       "book",
-          nome:         state.nome,
-          cognome:      state.cognome,
-          cf:           state.cf,
-          tel:          state.tel,
-          email:        state.email,
-          slotPrelievo: state.slotP,
-          slotECG:      state.slotE,
-          eventDate:    "18 Maggio 2026",
-          company:      "Häfele"
-        }),
-        mode: "no-cors"
-      });
-    } catch(e){ console.warn("Save error:", e); }
-  }, 300);
+   fetch(APPS_SCRIPT_URL, {
+  method: "POST",
+  mode: "no-cors",
+  headers: {"Content-Type": "application/x-www-form-urlencoded"},
+  body: new URLSearchParams({
+    action:       "book",
+    nome:         state.nome,
+    cognome:      state.cognome,
+    cf:           state.cf,
+    tel:          state.tel,
+    email:        state.email,
+    slotPrelievo: state.slotP,
+    slotECG:      state.slotE,
+    eventDate:    "18 Maggio 2026",
+    company:      "Häfele"
+  }).toString()
+});
+} catch(e){ console.warn("Save error:", e); }
+}, 300);
 });
 
 // ---- HELPERS CALENDARIO ----
